@@ -54,7 +54,6 @@ Then in another terminal:
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from random import randint
 from typing import Annotated
 
@@ -73,7 +72,7 @@ from azure.ai.agentserver.invocations import InvocationAgentServerHost
 from azure.ai.agentserver.langgraph import LangGraphInvocationsHostServer, LangGraphResponsesHostServer
 from azure.ai.agentserver.responses import ResponsesAgentServerHost
 
-load_dotenv(Path(__file__).with_name(".env"))
+load_dotenv()
 
 _AAD_SCOPE = "https://ai.azure.com/.default"
 
