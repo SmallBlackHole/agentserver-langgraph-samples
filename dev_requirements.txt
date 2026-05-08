@@ -1,0 +1,9 @@
+pytest
+pytest-asyncio
+httpx
+azure-ai-agentserver-core
+azure-ai-agentserver-responses
+azure-ai-agentserver-invocations
+langchain-core
+langgraph
+typing_extensions
