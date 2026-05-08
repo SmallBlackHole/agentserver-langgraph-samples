@@ -107,6 +107,65 @@ The default converters require a graph whose state schema declares a
 satisfy this constraint raises `ValueError`. To host such graphs, subclass
 and override the input converter, or use the underlying packages directly.
 
+## Feature parity vs. `1.0.0b17`
+
+This package is a clean rewrite on top of the new
+`azure-ai-agentserver-{core,responses,invocations}` stack. Some features
+from the legacy `1.0.0b17` build are intentionally postponed. Use this
+table to check whether your scenario is covered today.
+
+| Capability | b17 | This package | Notes |
+|---|:---:|:---:|---|
+| **Hosting** |  |  |  |
+| Host a `CompiledStateGraph` over OpenAI Responses API | ✅ | ✅ | Now via `ResponsesHostServer`, plus an Invocations host b17 didn't have. |
+| Streaming SSE response lifecycle (per-token text deltas) | ✅ | ✅ | |
+| Non-streaming response | ✅ | ✅ | |
+| Multi-turn via `previous_response_id` / `conversation` | ✅ | ✅ | Provider-driven via `ResponseContext.get_history()`. |
+| Multi-turn via `agent_session_id` (Invocations) | ❌ (no API) | ✅ | New protocol surface. |
+| Mid-stream cancellation | ✅ | ✅ | Via the responses host's `cancellation_signal`. |
+| Graceful shutdown | ✅ | ✅ | Inherited from `AgentServerHost`. |
+| **Tool calls** |  |  |  |
+| Tool call & tool result output items in non-streaming | ✅ | ✅ | `function_call` + `function_call_output` items, correlated by `call_id`. |
+| Tool call & tool result output items in streaming | ✅ | ✅ | Via `stream_mode=["updates","messages"]`. |
+| Per-token streaming of tool **arguments** | ✅ | ❌ | Currently emitted as a single delta, not partial fragments. |
+| **Foundry tools** |  |  |  |
+| `FoundryToolLike` / `ResolvedFoundryTool` | ✅ | ❌ | Postponed. |
+| `use_foundry_tools()` | ✅ | ❌ | Postponed. |
+| `FoundryToolLateBindingChatModel` | ✅ | ❌ | Postponed. |
+| `FoundryToolBindingMiddleware` | ✅ | ❌ | Postponed. |
+| `FoundryToolCallWrapper` / `FoundryToolNodeWrappers` | ✅ | ❌ | Postponed. |
+| `OAuthConsentRequiredError` → `requires_action` SSE | ✅ | ❌ | Postponed. |
+| **Foundry checkpointing** |  |  |  |
+| `FoundryCheckpointSaver` (durable graph state on Foundry) | ✅ | ❌ | Postponed. Users get `MemorySaver` plus any LangGraph-supported checkpointer. |
+| `FoundryCheckpointClient` integration | ✅ | ❌ | Postponed. Blocked on the new `-core` exposing the client. |
+| **Human-in-the-Loop** |  |  |  |
+| `interrupt()` + `Command(resume=...)` round-trip | ✅ | ❌ | Postponed. b17's `HumanInTheLoop*Helper` modules not ported. |
+| Interrupt rendered as a structured response item | ✅ | ❌ | Pairs with `requires_action` event encoding. |
+| **Conversation history fallback** |  |  |  |
+| Auto-fetch from `AsyncOpenAI.conversations.items.list(...)` when no checkpoint | ✅ | ❌ (by design) | New design is provider-only — plug a `ResponseProviderProtocol` (e.g. `FoundryStorageProvider`) into `ResponsesHostServer(..., store=...)`. |
+| Filter incomplete tool-call sequences | ✅ | ❌ | Same — provider-only. |
+| **Tracing** |  |  |  |
+| Azure Monitor / OTel via env vars | ✅ | ✅ | Inherited from `AgentServerHost`. |
+| `LANGSMITH_OTEL_*` env wiring | ✅ | ❌ | Postponed. |
+| `AzureAIOpenTelemetryTracer` callback registration | ✅ | ❌ | Postponed. |
+| `service.namespace = "azure.ai.agentserver.langgraph"` span attribute | ✅ | ❌ | Trivial follow-up. |
+| **Public API ergonomics** |  |  |  |
+| `from_langgraph(graph)` one-liner | ✅ | ❌ | Replaced by `ResponsesHostServer(graph)` / `InvocationsHostServer(graph)`. |
+| `LanggraphRunContext` exposed via `RunnableConfig` | ✅ | ❌ | New SDK has no equivalent context type. |
+| Pluggable converter | ✅ (ABC) | partial | Override hooks (`build_input`, `build_runnable_config`, `handle_create`, `parse_request`) instead of an ABC. |
+| **Workflows** |  |  |  |
+| Custom multi-node `StateGraph` (non-`MessagesState`) | requires user converter | requires subclass | Both gate on `is_messages_state_schema()`; non-`MessagesState` graphs need user code. |
+| `interrupt()` + `Command` in workflows | ✅ | ❌ | See HITL row. |
+
+**Bottom line — what works today.** LangGraph agents (ReAct or
+custom `MessagesState` graphs) where tools live in user code, multi-turn
+via the standard mechanisms, and both Responses + Invocations APIs.
+
+**Not yet covered.** Foundry-managed tools (the entire b17 `tools/`
+module), `FoundryCheckpointSaver`, HITL `interrupt()` round-trips,
+LangSmith / Azure-AI tracing callback wiring, and per-token streaming of
+tool arguments. Open an issue if any of these block your migration.
+
 ## Contributing
 
 This project welcomes contributions and suggestions. Most contributions
